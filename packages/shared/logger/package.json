@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@types/pino-pretty": "^5.0.0",
+
     "pino": "^8.16.2",
     "pino-pretty": "^10.3.1"
   },

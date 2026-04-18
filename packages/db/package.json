@@ -1,8 +1,16 @@
 {
-  "name": "db",
+  "name": "@shortrl/db",
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "exports": {
+    "./client": {
+      "import": "./src/client.ts"
+    },
+    "./schema": {
+      "import": "./src/schema/index.ts"
+    }
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "drizzle-kit": "^0.31.10"
