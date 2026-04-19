@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { ZodError } from "zod";
 
-import { UserService } from "../service/user.service";
+import { UserService } from "../service/auth.service";
 import {
   signupSchema,
   signinSchema,
@@ -11,8 +11,7 @@ const userService = new UserService();
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    console.log("hi")
-    console.log(req.body);
+    console.log(req.body)
     const body = signupSchema.parse(req.body);
     const result = await userService.signup(body);
 
@@ -33,7 +32,7 @@ export const signin = async (req: Request, res: Response) => {
   }
 };
 
-export const health = (_req: Request, res: Response) => {
+export const health = (req: Request, res: Response) => {
   return res.status(200).json({ status: "ok" });
 };
 

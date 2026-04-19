@@ -1,0 +1,19 @@
+{
+  "name": "gateway",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev":"bun --watch app.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "http-proxy-middleware": "^3.0.5",
+    "ioredis": "^5.10.1"
+  }
+}
