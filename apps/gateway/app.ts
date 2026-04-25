@@ -43,8 +43,17 @@ app.use(
   })
 );
 
+app.use(
+  "/analytics",
+  createProxyMiddleware({
+    target: services.analytics,
+    changeOrigin: true,
+  })
+);
+
 app.use(express.json());
 
 app.listen(8085, () => {
   console.log("Gateway running on 8085");
 });
+
