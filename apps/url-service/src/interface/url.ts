@@ -1,9 +1,13 @@
-
 export interface CreateUrlRequest {
   name: string;
   originalUrl: string;
-
 }
+
+export interface UpdateUrlRequest {
+  name?: string;
+  originalUrl?: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }
@@ -14,7 +18,6 @@ export interface CreateUrlResponse {
   originalUrl: string;
   shortUrl: string;
   createdAt: Date;
-
 }
 
 export interface UrlResponse {

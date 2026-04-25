@@ -8,3 +8,6 @@ export const url = pgTable("url", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   deletedAt: timestamp("deleted_at"),
 });
+
+export type Url = typeof url.$inferSelect;
+export type NewUrl = typeof url.$inferInsert;

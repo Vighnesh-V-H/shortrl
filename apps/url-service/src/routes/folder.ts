@@ -1,22 +1,22 @@
 import { Router } from "express";
 import {
-  save,
+  create,
   getById,
-  getByShortUrl,
   getAll,
   update,
   remove,
-  health,
-} from "../controllers/url.controller";
+  addUrl,
+  removeUrl,
+} from "../controllers/folder.controller";
 
 const router = Router();
 
-router.get("/health", health);
-router.post("/", save);
+router.post("/", create);
 router.get("/", getAll);
 router.get("/:id", getById);
-router.get("/short/:shortUrl", getByShortUrl);
 router.patch("/:id", update);
 router.delete("/:id", remove);
+router.post("/:id/urls", addUrl);
+router.delete("/:id/urls", removeUrl);
 
 export default router;

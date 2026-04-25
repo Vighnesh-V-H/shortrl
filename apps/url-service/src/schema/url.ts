@@ -1,26 +1,19 @@
-export type UrlId = string;
+import { z } from "zod";
 
-export interface UrlMetadata {
-  title?: string;
-  description?: string;
-  favicon?: string;
-}
+export const createUrlSchema = z.object({
+  name: z.string().min(1, { message: "Name is required" }).trim(),
+  originalUrl: z.string().url({ message: "Invalid URL format" }).trim(),
+});
 
-export interface UrlEntry {
-  id: UrlId;
-  originalUrl: string;
-  alias?: string;
-  createdAt: string;
-  updatedAt?: string;
-  visits?: number;
-  metadata?: UrlMetadata;
-  disabled?: boolean;
-}
+export const updateUrlSchema = z.object({
+  name: z.string().min(1, { message: "Name cannot be empty" }).trim().optional(),
+  originalUrl: z.string().url({ message: "Invalid URL format" }).trim().optional(),
+});
 
-export interface CreateUrlPayload {
-  url: string;
-  alias?: string;
-  metadata?: UrlMetadata;
-}
+export const urlIdParamSchema = z.object({
+  id: z.coerce.number().int().positive({ message: "Invalid URL ID" }),
+});
 
-export type SaveUrlResult = UrlEntry;
+export const shortUrlParamSchema = z.object({
+  shortUrl: z.string().min(1, { message: "Short URL is required" }),
+});

@@ -1,7 +1,22 @@
-import type { CreateUrlRequest, CreateUrlResponse, UrlResponse } from "../interface/url";
+import type { CreateUrlRequest, CreateUrlResponse, UpdateUrlRequest, UrlResponse } from "../interface/url";
+import type {
+  CreateFolderRequest,
+  UpdateFolderRequest,
+  FolderResponse,
+  FolderWithUrlsResponse,
+  AddUrlToFolderRequest,
+  RemoveUrlFromFolderRequest,
+} from "../interface/folder";
 
-export type { CreateUrlRequest, CreateUrlResponse, UrlResponse };
-
-export interface ControllerResult {
-
-}
+export type {
+  CreateUrlRequest,
+  CreateUrlResponse,
+  UpdateUrlRequest,
+  UrlResponse,
+  CreateFolderRequest,
+  UpdateFolderRequest,
+  FolderResponse,
+  FolderWithUrlsResponse,
+  AddUrlToFolderRequest,
+  RemoveUrlFromFolderRequest,
+};

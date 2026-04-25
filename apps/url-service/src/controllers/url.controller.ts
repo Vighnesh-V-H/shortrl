@@ -1,96 +1,106 @@
-
-
-import { db } from "@shortrl/db/client";
-import { url as urlTable } from "@shortrl/db/schema";
-import { eq } from "drizzle-orm";
-import { isValidUrl } from "../utils/validateUrl";
-import type { CreateUrlRequest, CreateUrlResponse, UrlResponse } from "../interface/url";
-import { generateShortUrl } from "../utils/generateUrl";
 import type { Request, Response } from "express";
+import { ZodError } from "zod";
+import { UrlService } from "../services/urlService";
+import {
+  createUrlSchema,
+  updateUrlSchema,
+  urlIdParamSchema,
+  shortUrlParamSchema,
+} from "../schema/url";
 
-export async function save(req: Request, res: Response): Promise<void> {
+const urlService = new UrlService();
+
+export const save = async (req: Request, res: Response) => {
   try {
-    const data = req.body as CreateUrlRequest;
-    if (!data) {
-      throw new Error("Request data is required");
+    const body = createUrlSchema.parse(req.body);
+    const result = await urlService.createUrl(body);
+    return res.status(201).json(result);
+  } catch (err) {
+    return handleError(err, res, "Failed to create URL");
+  }
+};
+
+export const getById = async (req: Request, res: Response) => {
+  try {
+    const { id } = urlIdParamSchema.parse(req.params);
+    const result = await urlService.getUrlById(id);
+
+    if (!result) {
+      return res.status(404).json({ error: "URL not found" });
     }
 
-    const name = data.name?.trim();
-    const originalUrl = data.originalUrl?.trim();
+    return res.status(200).json(result);
+  } catch (err) {
+    return handleError(err, res, "Failed to retrieve URL");
+  }
+};
 
-    if (!name) {
-      throw new Error("Name is required");
-    }
+export const getByShortUrl = async (req: Request, res: Response) => {
+  try {
+    const { shortUrl } = shortUrlParamSchema.parse(req.params);
+    const originalUrl = await urlService.getUrlByShortUrl(shortUrl);
 
     if (!originalUrl) {
-      throw new Error("Original URL is required");
+      return res.status(404).json({ error: "Short URL not found" });
     }
 
-    if (!isValidUrl(originalUrl)) {
-      throw new Error("Invalid URL format");
-    }
-
-    const result = await db.transaction(async (tx) => {
-      const insertedRows = await tx
-        .insert(urlTable)
-        .values({
-          name,
-          originalUrl,
-          shortUrl: "temp",
-        })
-        .returning({
-          id: urlTable.id,
-        });
-
-      const inserted = insertedRows[0];
-
-      if (!inserted?.id) {
-        throw new Error("Failed to create URL record");
-      }
-
-      const shortUrl = generateShortUrl(name, inserted.id, originalUrl);
-
-      await tx
-        .update(urlTable)
-        .set({ shortUrl })
-        .where(eq(urlTable.id, inserted.id));
-
-      const records = await tx
-        .select()
-        .from(urlTable)
-        .where(eq(urlTable.id, inserted.id))
-        .limit(1);
-
-      const record = records[0];
-
-      if (!record) {
-        throw new Error("Failed to fetch created URL");
-      }
-
-      if (
-        record.id === undefined ||
-        record.name === undefined ||
-        record.originalUrl === undefined ||
-        record.shortUrl === undefined ||
-        record.createdAt === undefined
-      ) {
-        throw new Error("Created URL record is incomplete");
-      }
-
-      return {
-        id: record.id,
-        name: record.name,
-        originalUrl: record.originalUrl,
-        shortUrl: record.shortUrl,
-        createdAt: record.createdAt,
-      };
-    });
-    res.status(201).json(result);
-  } catch (error) {
-    res.status(400).json({ error: (error as Error).message });
+    return res.status(200).json({ originalUrl });
+  } catch (err) {
+    return handleError(err, res, "Failed to resolve short URL");
   }
-}
+};
 
-export function health(_req: Request, res: Response): void {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-}
+export const getAll = async (_req: Request, res: Response) => {
+  try {
+    const result = await urlService.getAllUrls();
+    return res.status(200).json(result);
+  } catch (err) {
+    return handleError(err, res, "Failed to retrieve URLs");
+  }
+};
+
+export const update = async (req: Request, res: Response) => {
+  try {
+    const { id } = urlIdParamSchema.parse(req.params);
+    const body = updateUrlSchema.parse(req.body);
+    const result = await urlService.updateUrl(id, body);
+    return res.status(200).json(result);
+  } catch (err) {
+    return handleError(err, res, "Failed to update URL");
+  }
+};
+
+export const remove = async (req: Request, res: Response) => {
+  try {
+    const { id } = urlIdParamSchema.parse(req.params);
+    await urlService.deleteUrl(id);
+    return res.status(204).send();
+  } catch (err) {
+    return handleError(err, res, "Failed to delete URL");
+  }
+};
+
+export const health = (_req: Request, res: Response) => {
+  return res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+};
+
+const handleError = (err: unknown, res: Response, fallback: string) => {
+  if (err instanceof ZodError) {
+    return res.status(400).json({
+      error: "Validation failed",
+      details: err.flatten(),
+    });
+  }
+
+  const message = err instanceof Error ? err.message : fallback;
+
+  if (message === "URL not found") {
+    return res.status(404).json({ error: message });
+  }
+
+  if (message === "No fields to update") {
+    return res.status(400).json({ error: message });
+  }
+
+  return res.status(500).json({ error: message });
+};

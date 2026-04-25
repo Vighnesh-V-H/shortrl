@@ -1,33 +1,17 @@
 import { db } from "@shortrl/db/client";
 import { url as urlTable } from "@shortrl/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, isNull, and } from "drizzle-orm";
 import { logger } from "@shared/logger";
 import { isValidUrl } from "../utils/validateUrl";
-import type { CreateUrlRequest, CreateUrlResponse } from "../interface/url";
+import type { CreateUrlRequest, UpdateUrlRequest, CreateUrlResponse, UrlResponse } from "../interface/url";
 import { generateShortUrl } from "../utils/generateUrl";
 
 export class UrlService {
   async createUrl(data: CreateUrlRequest): Promise<CreateUrlResponse> {
-    if (!data) {
-      logger.error("Request data is required");
-      throw new Error("Request data is required");
-    }
-
-    const name = data.name?.trim();
-    const originalUrl = data.originalUrl?.trim();
-
-    if (!name) {
-      logger.error("Name is required");
-      throw new Error("Name is required");
-    }
-
-    if (!originalUrl) {
-      logger.error("Original URL is required");
-      throw new Error("Original URL is required");
-    }
+    const name = data.name.trim();
+    const originalUrl = data.originalUrl.trim();
 
     if (!isValidUrl(originalUrl)) {
-      logger.error({ originalUrl }, "Invalid URL format");
       throw new Error("Invalid URL format");
     }
 
@@ -48,7 +32,6 @@ export class UrlService {
       const inserted = insertedRows[0];
 
       if (!inserted?.id) {
-        logger.error("Failed to create URL record");
         throw new Error("Failed to create URL record");
       }
 
@@ -68,19 +51,7 @@ export class UrlService {
       const record = records[0];
 
       if (!record) {
-        logger.error({ id: inserted.id }, "Failed to fetch created URL");
         throw new Error("Failed to fetch created URL");
-      }
-
-      if (
-        record.id === undefined ||
-        record.name === undefined ||
-        record.originalUrl === undefined ||
-        record.shortUrl === undefined ||
-        record.createdAt === undefined
-      ) {
-        logger.error({ record }, "Created URL record is incomplete");
-        throw new Error("Created URL record is incomplete");
       }
 
       logger.info({ id: record.id, shortUrl: record.shortUrl }, "URL created successfully");
@@ -95,15 +66,33 @@ export class UrlService {
     });
   }
 
-  async getUrlByShortUrl(shortUrl: string): Promise<string | null> {
-    if (!shortUrl) {
-      logger.error("Short URL is required");
-      throw new Error("Short URL is required");
+  async getUrlById(id: number): Promise<UrlResponse | null> {
+    logger.info({ id }, "Retrieving URL by ID");
+
+    const [record] = await db
+      .select()
+      .from(urlTable)
+      .where(and(eq(urlTable.id, id), isNull(urlTable.deletedAt)));
+
+    if (!record) {
+      logger.warn({ id }, "URL not found");
+      return null;
     }
 
+    return {
+      id: record.id,
+      name: record.name,
+      originalUrl: record.originalUrl,
+      shortUrl: record.shortUrl,
+      createdAt: record.createdAt,
+      deletedAt: record.deletedAt,
+    };
+  }
+
+  async getUrlByShortUrl(shortUrl: string): Promise<string | null> {
     logger.info({ shortUrl }, "Retrieving original URL for short URL");
 
-    const records = await db
+    const [record] = await db
       .select({
         originalUrl: urlTable.originalUrl,
         deletedAt: urlTable.deletedAt,
@@ -111,8 +100,6 @@ export class UrlService {
       .from(urlTable)
       .where(eq(urlTable.shortUrl, shortUrl))
       .limit(1);
-
-    const record = records[0];
 
     if (!record) {
       logger.warn({ shortUrl }, "Short URL not found");
@@ -125,7 +112,99 @@ export class UrlService {
     }
 
     logger.info({ shortUrl, originalUrl: record.originalUrl }, "Original URL retrieved successfully");
-
     return record.originalUrl;
+  }
+
+  async getAllUrls(): Promise<UrlResponse[]> {
+    logger.info("Retrieving all URLs");
+
+    const records = await db
+      .select()
+      .from(urlTable)
+      .where(isNull(urlTable.deletedAt));
+
+    return records.map((record) => ({
+      id: record.id,
+      name: record.name,
+      originalUrl: record.originalUrl,
+      shortUrl: record.shortUrl,
+      createdAt: record.createdAt,
+      deletedAt: record.deletedAt,
+    }));
+  }
+
+  async updateUrl(id: number, data: UpdateUrlRequest): Promise<UrlResponse> {
+    logger.info({ id, data }, "Updating URL");
+
+    const [existing] = await db
+      .select()
+      .from(urlTable)
+      .where(and(eq(urlTable.id, id), isNull(urlTable.deletedAt)));
+
+    if (!existing) {
+      throw new Error("URL not found");
+    }
+
+    const updateData: Record<string, string> = {};
+
+    if (data.name) {
+      updateData.name = data.name.trim();
+    }
+
+    if (data.originalUrl) {
+      if (!isValidUrl(data.originalUrl)) {
+        throw new Error("Invalid URL format");
+      }
+      updateData.originalUrl = data.originalUrl.trim();
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      throw new Error("No fields to update");
+    }
+
+    await db
+      .update(urlTable)
+      .set(updateData)
+      .where(eq(urlTable.id, id));
+
+    const [updated] = await db
+      .select()
+      .from(urlTable)
+      .where(eq(urlTable.id, id));
+
+    if (!updated) {
+      throw new Error("Failed to fetch updated URL");
+    }
+
+    logger.info({ id }, "URL updated successfully");
+
+    return {
+      id: updated.id,
+      name: updated.name,
+      originalUrl: updated.originalUrl,
+      shortUrl: updated.shortUrl,
+      createdAt: updated.createdAt,
+      deletedAt: updated.deletedAt,
+    };
+  }
+
+  async deleteUrl(id: number): Promise<void> {
+    logger.info({ id }, "Soft deleting URL");
+
+    const [existing] = await db
+      .select()
+      .from(urlTable)
+      .where(and(eq(urlTable.id, id), isNull(urlTable.deletedAt)));
+
+    if (!existing) {
+      throw new Error("URL not found");
+    }
+
+    await db
+      .update(urlTable)
+      .set({ deletedAt: new Date() })
+      .where(eq(urlTable.id, id));
+
+    logger.info({ id }, "URL deleted successfully");
   }
 }
